@@ -1,0 +1,11 @@
+core = "7.x"
+name = "Advanced link"
+package = "Fields"
+version = "7.x-1.x"
+description = "A widget that offers standard widget functionality and an extra option to select internal content to link to. "
+dependencies = "Link"
+
+scripts[] = advanced_link.js
+
+
+; TODO : improve layout of the form

@@ -1,0 +1,121 @@
+<?php
+
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function advanced_link_field_widget_info() {
+  $widget =  array(
+    'advanced_link_widget' => array(
+      'label' => 'Advanced Link',
+      'field types' => array('link_field'),
+      'multiple values' => FIELD_BEHAVIOR_DEFAULT,
+    ),
+  );
+  return $widget;
+}
+
+/*
+ * Implements hook_field_widget_settings_form
+ */
+function advanced_link_field_widget_settings_form($field, $instance) {
+  $types = node_type_get_types();
+  foreach((array)$types as $type){
+    $options[$type->type] = $type->name;
+  }
+  $widget   = $instance['widget'];
+  $defaults = field_info_widget_settings($widget['type']);
+  $settings = array_merge($defaults, $widget['settings']);
+  if (isset($settings['ct'])){
+  $def_values = $settings['ct']['available_content_types'];
+  $lang = $settings['ct']['language'];
+  $published = $settings['ct']['published'];
+  }
+  else {$def_values = array();}
+  $form = array();
+    $form['ct'] = array(
+      '#type'   => 'fieldset',
+      '#title'  => t('Options for internal linking'),
+      '#tree'   => TRUE,
+      );
+    $form['ct']['available_content_types'] = array(
+      '#title' => 'Only list nodes of the following content types',
+      '#type'             => 'checkboxes',
+      '#default_value'    => $def_values,
+      '#options'          => $options,
+      '#required'         => TRUE,
+      '#description'      => t('Choose which types of content you want to add to the available links list.'),
+    );
+    $form['ct']['published'] = array(
+        '#type' => 'radios',
+        '#title' => 'List nodes of the following status',
+        '#required' => TRUE,
+        '#default_value' => $published ? $published : 1,
+        '#options' => array('All content', 'Published only'),
+    );
+    $form['ct']['language'] = array(
+        '#type' => 'radios',
+        '#title' => 'List nodes of following language',
+        '#required' => TRUE,
+        '#default_value' => $lang ? $lang : 0,
+        '#options' => array('All languages', 'Active language only'),
+    );
+  return  $form;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function advanced_link_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  switch($instance['widget']['type']){
+  case 'advanced_link_widget':
+    if(isset($instance['widget']['settings']['ct'])){
+    $types = $instance['widget']['settings']['ct']['available_content_types'];}
+  // get all nodes, filter by type, status and language
+    $query = db_select('node', 'n')-> fields('n', array('title', 'nid', 'type'));
+    // add conditions from settings
+    $query->condition('type', $types);
+    if($instance['widget']['settings']['ct']['language'] == 1){
+    $query -> condition('language', $langcode);   
+    }
+    if($instance['widget']['settings']['ct']['language'] == 1){   
+          $query -> condition ('status', 1);
+    }
+
+  $query-> addTag('node_access')
+        -> orderBy('type')
+        -> orderBy('title');
+  $result = $query->execute()->fetchAll();
+
+    $options[] = '';
+    foreach ((array)$result as $node){
+     $options['node/' . $node->nid] = '['.$node->type.'] ' . $node->title;
+    }
+    
+    // build widget form
+    $widget = array();
+    $widget['title'] = array(
+      '#type'             => 'textfield',
+      '#title'            => t('Link title'),
+      '#size'             => 80,
+      '#default_value'    => isset($items[$delta]['title']) ? $items[$delta]['title'] : '',
+    );
+    $widget['url'] = array(
+      '#type'             => 'textfield',
+      '#title'            => t('url'),
+      '#size'             => 80,
+      '#default_value'    => isset($items[$delta]) ? $items[$delta]['url'] : '',
+    );
+    $widget['options'] = array(
+      '#type'             => 'select',
+      '#title'            => t('Available content'),
+      '#options'          => $options,
+      '#description'      => t('Choose a node you wish to refer to'),
+    );
+
+    break;
+    
+  }
+  return $widget;
+}
+
